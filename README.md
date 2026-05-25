@@ -16,12 +16,30 @@ Production-quality MERN stack project planner for **ImpactCraft AI** interview a
 - **Reliability** — MongoDB retry + graceful 503, chart fallback, stale data kept on fetch errors
 - **Auto-recalculation** — schedule updates on create, update, delete
 
-## Architecture
+## Architecture Diagram
 
-```
-React (Vite) + Tailwind CSS  →  Axios  →  Express API  →  MongoDB
-                                  ↓
-                        Scheduling Engine (topo sort + critical path)
+```mermaid
+graph TD
+    subgraph Frontend [React SPA]
+        UI[Components: Gantt, Graph, Table]
+        State[Hooks: useTasks, useTheme]
+    end
+
+    subgraph Backend [Node.js / Express API]
+        Controller[Task Controller]
+        Service[Task Service]
+        Engine[Scheduling Engine\nKahn's Algo + CPM]
+    end
+
+    subgraph Database [MongoDB]
+        DB[(Tasks Collection)]
+    end
+
+    UI -->|Axios REST Calls| Controller
+    Controller --> Service
+    Service <-->|CRUD & Fetch| DB
+    Service -->|Calculate Schedule| Engine
+    Engine -->|Update Start/End Dates| DB
 ```
 
 | Layer | Stack |
@@ -29,6 +47,44 @@ React (Vite) + Tailwind CSS  →  Axios  →  Express API  →  MongoDB
 | Frontend | React 18, Vite, Tailwind CSS, react-google-charts, Axios |
 | Backend | Node.js, Express, Mongoose |
 | Database | MongoDB (Atlas or local) |
+
+## User Flow
+
+```mermaid
+sequenceDiagram
+    actor User
+    participant UI as React UI
+    participant API as Express Server
+    participant Engine as Scheduling Engine
+    participant DB as MongoDB Database
+
+    User->>UI: Fills out Task Form
+    UI->>API: POST /tasks
+    API->>API: Validates Input
+    API->>DB: Saves Initial Task
+    API->>Engine: Triggers schedule recalculation
+    Engine->>Engine: Topological Sort (Detects cycles)
+    Engine->>Engine: Forward/Backward Pass (Critical Path)
+    Engine->>DB: Bulk updates start/end days
+    API-->>UI: Returns updated schedule
+    UI->>User: Re-renders Gantt Chart & Dependency Graph
+```
+
+## System Flow (Scheduling Algorithm)
+
+```mermaid
+flowchart TD
+    Start([Trigger Recalculation]) --> Fetch[Fetch all tasks from MongoDB]
+    Fetch --> TopoSort{Topological Sort\nKahn's Algorithm}
+    
+    TopoSort -- Cycle Detected --> Error[Throw 422 Error]
+    Error --> Rollback[Rollback DB changes]
+    
+    TopoSort -- Successful DAG --> ForwardPass[Forward Pass:\nstartDay = MAX(predecessors' endDay)]
+    ForwardPass --> BackwardPass[Backward Pass:\nIdentify Critical Path]
+    BackwardPass --> BulkWrite[MongoDB BulkWrite:\nUpdate start, end, isCritical]
+    BulkWrite --> End([Return 200 OK])
+```
 
 ## Project Structure
 
