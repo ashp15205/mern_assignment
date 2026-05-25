@@ -1,8 +1,8 @@
-const NODE_W = 130;
-const NODE_H = 42;
-const H_GAP = 90;
-const V_GAP = 24;
-const PAD = 12;
+const NODE_W = 160;
+const NODE_H = 50;
+const H_GAP = 50;
+const V_GAP = 16;
+const PAD = 20;
 
 function layoutDependencyGraph(tasks) {
   const byId = new Map(tasks.map((t) => [String(t._id), t]));
@@ -106,10 +106,9 @@ export default function DependencyGraph({ tasks, theme }) {
         <div className="overflow-x-auto border border-slate-100/60 bg-transparent dark:border-zinc-800/40">
           <svg
             viewBox={`0 0 ${width} ${height}`}
-            width={width}
-            height={height}
-            className="max-w-full shrink-0"
-            preserveAspectRatio="xMinYMin meet"
+            className="mx-auto block h-auto max-w-full shrink-0"
+            style={{ width: `${width}px` }}
+            preserveAspectRatio="xMidYMid meet"
             role="img"
             aria-label="Dependency graph"
           >
@@ -174,40 +173,32 @@ export default function DependencyGraph({ tasks, theme }) {
                   filter="url(#node-shadow)"
                 />
 
-                {/* Status indicator */}
-                {n.critical ? (
-                  <circle cx={n.x + 16} cy={n.y} r={3.5} fill="#ef4444">
-                    <animate attributeName="r" values="3;4;3" dur="2s" repeatCount="indefinite" />
-                  </circle>
-                ) : (
-                  <circle cx={n.x + 16} cy={n.y} r={3} fill="#818cf8" />
-                )}
-
-                {/* Task name */}
-                <text
-                  x={n.x + 28}
-                  y={n.y - 2}
-                  textAnchor="start"
-                  fontSize="12"
-                  fontFamily="Inter, system-ui"
-                  fontWeight="600"
-                  fill={n.critical ? (isDark ? '#fca5a5' : '#991b1b') : (isDark ? '#f4f4f5' : '#334155')}
+                {/* Centered Node Contents via HTML */}
+                <foreignObject 
+                  x={n.x} 
+                  y={n.y - NODE_H / 2} 
+                  width={NODE_W} 
+                  height={NODE_H}
                 >
-                  {n.name.length > 12 ? `${n.name.slice(0, 11)}…` : n.name}
-                </text>
-
-                {/* Duration sub-label */}
-                <text
-                  x={n.x + 28}
-                  y={n.y + 12}
-                  textAnchor="start"
-                  fontSize="10"
-                  fontFamily="Inter, system-ui"
-                  fontWeight="400"
-                  fill="#94a3b8"
-                >
-                  {n.duration}d
-                </text>
+                  <div className="flex h-full w-full flex-col items-center justify-center pt-0.5 leading-tight text-center">
+                    <div className="flex items-center justify-center gap-1.5 mb-0.5 max-w-full px-2">
+                      {n.critical ? (
+                        <div className="h-1.5 w-1.5 shrink-0 rounded-full bg-red-500 animate-pulse" />
+                      ) : (
+                        <div className="h-1.5 w-1.5 shrink-0 rounded-full bg-brand-400" />
+                      )}
+                      <span 
+                        className={`truncate text-[12px] font-semibold tracking-wide ${n.critical ? (isDark ? 'text-red-300' : 'text-red-800') : (isDark ? 'text-slate-200' : 'text-slate-800')}`}
+                        title={n.name}
+                      >
+                        {n.name}
+                      </span>
+                    </div>
+                    <span className="text-[10px] font-medium text-slate-500 dark:text-slate-400">
+                      {n.duration} {n.duration === 1 ? 'day' : 'days'}
+                    </span>
+                  </div>
+                </foreignObject>
               </g>
             ))}
           </svg>
