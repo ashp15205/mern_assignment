@@ -13,7 +13,7 @@ export default function Layout({ children, theme, onToggleTheme, projectEnd, tot
             </div>
             <div className="min-w-0">
               <h1 className="page-heading truncate !text-lg">Mini Project Planner</h1>
-              <p className="truncate text-xs text-slate-400 dark:text-zinc-500">ImpactCraft AI</p>
+              <p className="truncate text-xs text-slate-400 dark:text-zinc-500">Gantt & Dependency Tracker</p>
             </div>
           </div>
 

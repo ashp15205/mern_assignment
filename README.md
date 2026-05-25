@@ -1,6 +1,6 @@
 # Mini Project Planner with Gantt View
 
-Production-quality MERN stack project planner for **ImpactCraft AI** interview assignment. Create tasks, define precedence dependencies, auto-generate schedules, and visualize timelines in a Gantt chart.
+A production-quality MERN stack project planner built with a custom topological sorting engine. Create tasks, define precedence dependencies, automatically calculate critical paths, and visualize project timelines in an interactive Gantt chart.
 
 ![Dark Mode UI](./docs/screenshots/dark-mode.png)
 ![Light Mode UI](./docs/screenshots/light-mode.png)
