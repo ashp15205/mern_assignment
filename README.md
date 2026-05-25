@@ -79,16 +79,16 @@ sequenceDiagram
 
 ```mermaid
 flowchart TD
-    Start([Trigger Recalculation]) --> Fetch[Fetch all tasks from MongoDB]
-    Fetch --> TopoSort{Topological Sort\nKahn's Algorithm}
+    Start(["Trigger Recalculation"]) --> Fetch["Fetch all tasks from MongoDB"]
+    Fetch --> TopoSort{"Topological Sort\nKahn's Algorithm"}
     
-    TopoSort -- Cycle Detected --> Error[Throw 422 Error]
-    Error --> Rollback[Rollback DB changes]
+    TopoSort -- Cycle Detected --> Error["Throw 422 Error"]
+    Error --> Rollback["Rollback DB changes"]
     
-    TopoSort -- Successful DAG --> ForwardPass[Forward Pass:\nstartDay = MAX(predecessors' endDay)]
-    ForwardPass --> BackwardPass[Backward Pass:\nIdentify Critical Path]
-    BackwardPass --> BulkWrite[MongoDB BulkWrite:\nUpdate start, end, isCritical]
-    BulkWrite --> End([Return 200 OK])
+    TopoSort -- Successful DAG --> ForwardPass["Forward Pass:\nstartDay = MAX(predecessors' endDay)"]
+    ForwardPass --> BackwardPass["Backward Pass:\nIdentify Critical Path"]
+    BackwardPass --> BulkWrite["MongoDB BulkWrite:\nUpdate start, end, isCritical"]
+    BulkWrite --> End(["Return 200 OK"])
 ```
 
 ## Project Structure
