@@ -1,7 +1,14 @@
-/** Day 0 = start of today (local midnight). */
+/** Day 0 = project start date (saved in localStorage, defaults to today). */
 export function getScheduleAnchor() {
+  const saved = localStorage.getItem('projectStartDate');
+  if (saved) {
+    const d = new Date(parseInt(saved, 10));
+    d.setHours(0, 0, 0, 0);
+    return d;
+  }
   const d = new Date();
   d.setHours(0, 0, 0, 0);
+  localStorage.setItem('projectStartDate', d.getTime().toString());
   return d;
 }
 

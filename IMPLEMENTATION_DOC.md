@@ -125,6 +125,10 @@ critical = backtrack(longestPath(tasks))
 
 **`useDebouncedValue`** — 400ms debounce on search input to reduce API churn.
 
+**`localStorage`** — used to persist UX preferences without requiring user authentication:
+- `theme`: Stores 'dark' or 'light' preference (managed by `useTheme.js`).
+- `projectStartDate`: Anchors the project start (Day 0) to a fixed date to prevent the schedule from sliding forward every day. Editable via `SidebarToolbar.jsx`.
+
 **`useTasks` hook** centralizes:
 
 | State | Description |

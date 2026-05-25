@@ -130,7 +130,7 @@ App
 - Time unit is abstract **days** (Day 0 origin)
 - Precedence-only dependencies (FS relationships)
 - One schedule timeline shared by all tasks
-- Gantt anchor date is cosmetic (Jan 1, 2025); logic uses day indices
+- Gantt anchor date defaults to project creation date (stored in `localStorage`) and can be edited in the UI; backend logic uses purely relative day indices
 
 ## 9. Future Improvements
 
