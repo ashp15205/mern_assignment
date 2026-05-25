@@ -2,6 +2,9 @@
 
 Production-quality MERN stack project planner for **ImpactCraft AI** interview assignment. Create tasks, define precedence dependencies, auto-generate schedules, and visualize timelines in a Gantt chart.
 
+![Dark Mode UI](./docs/screenshots/dark-mode.png)
+![Light Mode UI](./docs/screenshots/light-mode.png)
+
 ## Features
 
 - **Task management** — full CRUD (create, read, update/edit, delete) for name, duration, dependencies, and status
