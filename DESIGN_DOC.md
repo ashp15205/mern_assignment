@@ -2,21 +2,28 @@
 
 ## 1. System Architecture
 
-```
-┌─────────────────────────────────────────────────────────────┐
-│                     Browser (React SPA)                     │
-│  TaskForm │ TaskList │ GanttChart(Google) │ DependencyGraph │
-└───────────────────────────┬─────────────────────────────────┘
-                            │ Axios (REST)
-┌───────────────────────────▼─────────────────────────────────┐
-│                    Express API (Node.js)                    │
-│  Routes → Controllers → Services → Scheduling Engine        │
-└───────────────────────────┬─────────────────────────────────┘
-                            │ Mongoose
-┌───────────────────────────▼─────────────────────────────────┐
-│                         MongoDB                             │
-│                    Collection: tasks                        │
-└─────────────────────────────────────────────────────────────┘
+```mermaid
+graph TD
+    subgraph Frontend [React SPA]
+        UI[Components: Gantt, Graph, Table]
+        State[Hooks: useTasks, useTheme]
+    end
+
+    subgraph Backend [Node.js / Express API]
+        Controller[Task Controller]
+        Service[Task Service]
+        Engine[Scheduling Engine\nKahn's Algo + CPM]
+    end
+
+    subgraph Database [MongoDB]
+        DB[(Tasks Collection)]
+    end
+
+    UI -->|Axios REST Calls| Controller
+    Controller --> Service
+    Service <-->|CRUD & Fetch| DB
+    Service -->|Calculate Schedule| Engine
+    Engine -->|Update Start/End Dates| DB
 ```
 
 ### Design principles
@@ -34,25 +41,26 @@
 
 ```mermaid
 sequenceDiagram
-    participant U as User
-    participant F as React UI
-    participant A as Express API
-    participant S as Scheduling Engine
-    participant D as MongoDB
+    actor User
+    participant UI as React UI
+    participant API as Express Server
+    participant Engine as Scheduling Engine
+    participant DB as MongoDB Database
 
-    U->>F: Submit task form
-    F->>F: Client validation
-    F->>A: POST /tasks
-    A->>A: Validate deps, duration, IDs
-    A->>D: Insert task
-    A->>S: Topological sort + schedule
-    alt Circular dependency
-        A->>D: Rollback insert
-        A-->>F: 422 error
-    else OK
-        A->>D: Bulk update start/end/critical
-        A-->>F: 201 + scheduled tasks
-        F->>F: Update Gantt + list
+    User->>UI: Fills out Task Form
+    UI->>API: POST /tasks
+    API->>API: Validates Input (No self-deps, negative duration)
+    API->>DB: Saves Initial Task
+    API->>Engine: Triggers schedule recalculation
+    Engine->>Engine: Topological Sort (Detects cycles)
+    alt Circular Dependency Detected
+        Engine->>DB: Rollback DB changes
+        API-->>UI: 422 Unprocessable Entity
+    else Successful DAG
+        Engine->>Engine: Forward/Backward Pass (Critical Path)
+        Engine->>DB: Bulk updates start/end days
+        API-->>UI: Returns updated schedule (201 Created)
+        UI->>User: Re-renders Gantt Chart & Dependency Graph
     end
 ```
 
@@ -168,12 +176,18 @@ App
 - **Scheduling:** O(V+E) per request; cache schedule if read-heavy
 - **Frontend:** Virtualize large task lists; paginate API
 
-## Diagram: Scheduling data flow
+## 13. System Flow (Scheduling Algorithm)
 
-```
-Tasks (DB) → computeSchedule()
-              ├── topologicalSort() → order or cycle error
-              ├── forward pass → startDay, endDay per task
-              └── critical path DP → isCritical flags
-           → bulkWrite → GET /tasks returns enriched data
+```mermaid
+flowchart TD
+    Start(["Trigger Recalculation"]) --> Fetch["Fetch all tasks from MongoDB"]
+    Fetch --> TopoSort{"Topological Sort\nKahn's Algorithm"}
+    
+    TopoSort -- Cycle Detected --> Error["Throw 422 Error"]
+    Error --> Rollback["Rollback DB changes"]
+    
+    TopoSort -- Successful DAG --> ForwardPass["Forward Pass:\nstartDay = MAX(predecessors' endDay)"]
+    ForwardPass --> BackwardPass["Backward Pass:\nIdentify Critical Path"]
+    BackwardPass --> BulkWrite["MongoDB BulkWrite:\nUpdate start, end, isCritical"]
+    BulkWrite --> End(["Return 200 OK"])
 ```
