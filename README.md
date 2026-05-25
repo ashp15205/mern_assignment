@@ -2,8 +2,10 @@
 
 A production-quality MERN stack project planner built with a custom topological sorting engine. Create tasks, define precedence dependencies, automatically calculate critical paths, and visualize project timelines in an interactive Gantt chart.
 
-![Dark Mode UI](./docs/screenshots/dark-mode.png)
 ![Light Mode UI](./docs/screenshots/light-mode.png)
+
+![Dark Mode UI](./docs/screenshots/dark-mode.png)
+
 
 ## Features
 
