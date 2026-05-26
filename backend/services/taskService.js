@@ -7,22 +7,22 @@ const {
   validateStatus,
   validateDependencies,
   parseObjectId,
-  normalizeDependencies,
 } = require('../utils/taskValidation');
 
-async function getAllTaskIds() {
-  const tasks = await Task.find({}, '_id').lean();
+async function getAllTaskIds(userId) {
+  const tasks = await Task.find({ user: userId }, '_id').lean();
   return new Set(tasks.map((t) => String(t._id)));
 }
 
-async function createTask(body) {
+async function createTask(body, userId) {
   const name = validateName(body.name);
   const duration = validateDuration(body.duration);
   const status = validateStatus(body.status) || 'Pending';
-  const existingIds = await getAllTaskIds();
+  const existingIds = await getAllTaskIds(userId);
   const depIds = validateDependencies(body.dependencies, null, existingIds);
 
   const duplicate = await Task.findOne({
+    user: userId,
     name: { $regex: new RegExp(`^${name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') },
   });
   if (duplicate) {
@@ -30,6 +30,7 @@ async function createTask(body) {
   }
 
   const task = await Task.create({
+    user: userId,
     name,
     duration,
     dependencies: depIds,
@@ -37,7 +38,7 @@ async function createTask(body) {
   });
 
   // Validate no circular dependencies after insert
-  const allTasks = await Task.find();
+  const allTasks = await Task.find({ user: userId });
   const { computeSchedule: sched } = require('../utils/schedulingEngine');
   const check = sched(allTasks);
   if (!check.ok) {
@@ -45,12 +46,12 @@ async function createTask(body) {
     throw new AppError(check.error, 422);
   }
 
-  return recalculateAndSave();
+  return recalculateAndSave(userId);
 }
 
 /** Project-wide schedule stats (unaffected by list filters). */
-async function getScheduleMeta() {
-  const all = await Task.find().lean();
+async function getScheduleMeta(userId) {
+  const all = await Task.find({ user: userId }).lean();
   if (!all.length) {
     return { projectEnd: 0, criticalPath: [], totalTasks: 0 };
   }
@@ -62,9 +63,9 @@ async function getScheduleMeta() {
   };
 }
 
-async function getTasks(query = {}) {
+async function getTasks(query = {}, userId) {
   const { sort = 'name', status, search } = query;
-  const filter = {};
+  const filter = { user: userId };
   if (status && status !== 'all') filter.status = status;
   if (search) filter.name = { $regex: search, $options: 'i' };
 
@@ -77,36 +78,36 @@ async function getTasks(query = {}) {
 
   const [tasks, allTasks, meta] = await Promise.all([
     Task.find(filter).sort(sortMap[sort] || sortMap.name).lean(),
-    Task.find().sort({ startDay: 1, name: 1 }).lean(),
-    getScheduleMeta(),
+    Task.find({ user: userId }).sort({ startDay: 1, name: 1 }).lean(),
+    getScheduleMeta(userId),
   ]);
 
   return { tasks, allTasks, meta };
 }
 
-async function deleteTask(id) {
+async function deleteTask(id, userId) {
   parseObjectId(id);
-  const task = await Task.findByIdAndDelete(id);
+  const task = await Task.findOneAndDelete({ _id: id, user: userId });
   if (!task) throw new AppError('Task not found', 404);
 
   // Remove deleted task from other tasks' dependencies
   await Task.updateMany(
-    { dependencies: task._id },
+    { user: userId, dependencies: task._id },
     { $pull: { dependencies: task._id } }
   );
 
-  return recalculateAndSave();
+  return recalculateAndSave(userId);
 }
 
-async function generateSchedule() {
-  return recalculateAndSave();
+async function generateSchedule(userId) {
+  return recalculateAndSave(userId);
 }
 
 /**
  * Run scheduling engine and persist start/end/critical flags on all tasks.
  */
-async function recalculateAndSave() {
-  const tasks = await Task.find();
+async function recalculateAndSave(userId) {
+  const tasks = await Task.find({ user: userId });
   if (tasks.length === 0) {
     return { tasks: [], projectEnd: 0, criticalPath: [], message: 'No tasks to schedule' };
   }
@@ -118,7 +119,7 @@ async function recalculateAndSave() {
 
   const bulkOps = result.tasks.map((t) => ({
     updateOne: {
-      filter: { _id: t._id },
+      filter: { _id: t._id, user: userId },
       update: {
         $set: {
           startDay: t.startDay,
@@ -130,7 +131,7 @@ async function recalculateAndSave() {
   }));
 
   await Task.bulkWrite(bulkOps);
-  const updated = await Task.find().sort({ startDay: 1, name: 1 }).lean();
+  const updated = await Task.find({ user: userId }).sort({ startDay: 1, name: 1 }).lean();
 
   return {
     tasks: updated,
@@ -139,16 +140,17 @@ async function recalculateAndSave() {
   };
 }
 
-async function updateTask(id, body) {
+async function updateTask(id, body, userId) {
   parseObjectId(id);
-  const task = await Task.findById(id);
+  const task = await Task.findOne({ _id: id, user: userId });
   if (!task) throw new AppError('Task not found', 404);
 
-  const existingIds = await getAllTaskIds();
+  const existingIds = await getAllTaskIds(userId);
 
   if (body.name !== undefined) {
     const name = validateName(body.name);
     const duplicate = await Task.findOne({
+      user: userId,
       _id: { $ne: task._id },
       name: { $regex: new RegExp(`^${name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') },
     });
@@ -161,7 +163,7 @@ async function updateTask(id, body) {
   if (body.dependencies !== undefined) {
     const deps = validateDependencies(body.dependencies, id, existingIds);
     // Pre-check cycle if we add these deps
-    const hypothetical = await Task.find().lean();
+    const hypothetical = await Task.find({ user: userId }).lean();
     const idx = hypothetical.findIndex((t) => String(t._id) === id);
     if (idx >= 0) hypothetical[idx] = { ...hypothetical[idx], dependencies: deps };
     const { computeSchedule: sched } = require('../utils/schedulingEngine');
@@ -176,7 +178,7 @@ async function updateTask(id, body) {
   }
 
   await task.save();
-  return recalculateAndSave();
+  return recalculateAndSave(userId);
 }
 
 module.exports = {

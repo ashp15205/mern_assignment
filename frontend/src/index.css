@@ -184,3 +184,8 @@
 .dark .gantt-container svg path[stroke="#cccccc"] {
   stroke: #27272a !important;
 }
+
+/* Kill the internal scrollbar Google Charts renders inside its own container */
+.gantt-container > div > div {
+  overflow: hidden !important;
+}

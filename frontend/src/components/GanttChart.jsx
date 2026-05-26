@@ -10,9 +10,14 @@ const COLUMNS = [
   { type: 'date', id: 'End' },
 ];
 
-function ganttHeight(rowCount) {
-  return Math.max(100, rowCount * 41 + 55);
-}
+const CRITICAL_COLOR = '#ef4444';
+const NORMAL_COLOR  = '#6366f1';
+
+const ROW_H = 41;
+const CHART_PAD = 30;
+const MAX_VISIBLE_ROWS = 4;
+
+function ganttHeight(n) { return n * ROW_H + CHART_PAD; }
 
 export default function GanttChart({ tasks, projectEnd, allTasks, theme }) {
   const isDark = theme === 'dark';
@@ -20,8 +25,11 @@ export default function GanttChart({ tasks, projectEnd, allTasks, theme }) {
   const anchor = useMemo(() => getScheduleAnchor(), []);
 
   const source = (allTasks?.length ? allTasks : tasks) || [];
-  const scheduled = source.filter((t) => t.startDay != null && t.endDay != null);
+  const scheduled = source.filter(
+    (t) => t.startDay != null && t.endDay != null && t.name
+  );
 
+  /* ── Empty state ── */
   if (!scheduled.length) {
     return (
       <section className="card overflow-hidden">
@@ -39,51 +47,66 @@ export default function GanttChart({ tasks, projectEnd, allTasks, theme }) {
             📊
           </div>
           <p className="section-heading">Gantt Timeline</p>
-          <p className="mt-1.5 text-sm text-slate-500 dark:text-zinc-400">Add tasks to see the timeline chart.</p>
+          <p className="mt-1.5 text-sm text-slate-500 dark:text-zinc-400">
+            Add tasks to see the timeline chart.
+          </p>
         </div>
       </section>
     );
   }
 
+  /* ── Tooltip helpers ── */
+  const ttBg     = isDark ? '#18181b' : '#fff';
+  const ttBorder = isDark ? '#27272a' : '#e2e8f0';
+  const ttTitle  = isDark ? '#f4f4f5' : '#0f172a';
+  const ttSub    = isDark ? '#a1a1aa' : '#64748b';
+
+  /* ── Build rows ── */
   const rows = scheduled.map((t) => {
     const start = addDaysToAnchor(anchor, t.startDay);
-    const end = addDaysToAnchor(anchor, Math.max(t.endDay, t.startDay + (t.duration === 0 ? 0 : 1)));
-    
-    const startStr = start.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
-    const endStr = end.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
-    const tooltipBg = isDark ? '#18181b' : '#ffffff';
-    const tooltipBorder = isDark ? '#27272a' : '#e2e8f0';
-    const tooltipText1 = isDark ? '#f4f4f5' : '#0f172a';
-    const tooltipText2 = isDark ? '#a1a1aa' : '#64748b';
-    
+    const end   = addDaysToAnchor(anchor, Math.max(t.endDay, t.startDay + 1));
+
+    const fmt = (d) => d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+    const crit = t.isCritical
+      ? '<span style="background:#fef2f2;color:#dc2626;padding:2px 6px;border-radius:4px;font-size:11px;font-weight:600;margin-left:6px;">Critical</span>'
+      : '';
+
     const tooltip = `
-      <div style="padding: 10px 14px; font-family: Inter, system-ui, sans-serif; white-space: nowrap; border-radius: 8px; border: 1px solid ${tooltipBorder}; background: ${tooltipBg};">
-        <div style="font-weight: 600; color: ${tooltipText1}; font-size: 14px; margin-bottom: 4px;">${t.name}</div>
-        <div style="color: ${tooltipText2}; font-size: 13px;">${startStr} – ${endStr}</div>
-      </div>
-    `;
+      <div style="padding:10px 14px;font-family:Inter,system-ui,sans-serif;white-space:nowrap;border-radius:8px;border:1px solid ${ttBorder};background:${ttBg};box-shadow:0 4px 12px rgba(0,0,0,.15);">
+        <div style="font-weight:600;color:${ttTitle};font-size:14px;margin-bottom:4px;display:flex;align-items:center;">${t.name}${crit}</div>
+        <div style="color:${ttSub};font-size:12px;margin-bottom:2px;">📅 ${fmt(start)} – ${fmt(end)}</div>
+        <div style="color:${ttSub};font-size:12px;">⏱ ${t.duration} day${t.duration !== 1 ? 's' : ''} &nbsp;|&nbsp; Day ${t.startDay} → ${t.endDay}</div>
+      </div>`;
 
     return [t.name, t.name, tooltip, start, end];
   });
 
-  const chartH = ganttHeight(scheduled.length);
-  const minChartW = Math.max(600, (projectEnd ?? 0) * 35 + 150);
-  const criticalCount = scheduled.filter((t) => t.isCritical).length;
+  /* ── Force 7-day span for short timelines ── */
+  const maxEnd = Math.max(...scheduled.map((t) => t.endDay ?? 0));
+  const barColors = scheduled.map((t) => (t.isCritical ? CRITICAL_COLOR : NORMAL_COLOR));
   
-  let critIndex = 0;
-  let normIndex = 0;
-  const barColors = scheduled.map((t) => {
-    if (t.isCritical) {
-      critIndex++;
-      return `#ef444${critIndex % 10}`;
-    } else {
-      normIndex++;
-      return `#6366f${normIndex % 10}`;
-    }
-  });
+  if (maxEnd < 7 && scheduled.length > 0) {
+    // Add a tiny, invisible 1-second bar to the first existing row at Day 7.
+    // Colored the same as the background to perfectly hide it.
+    const padStart = addDaysToAnchor(anchor, 7);
+    const padEnd = new Date(padStart.getTime() + 1000);
+    rows.push([scheduled[0].name, '', '', padStart, padEnd]);
+    barColors.push(isDark ? '#09090b' : '#f8f9fc');
+  }
 
-  const labelColor = isDark ? '#e4e4e7' : '#475569';
+  /* ── Dimensions ── */
+  const visibleRows = scheduled.length;
+  const chartH      = ganttHeight(visibleRows);
+  const timelineEnd = Math.max(projectEnd ?? 0, 7);
+  const minChartW   = Math.max(800, timelineEnd * 60 + 200);
 
+  const shouldScroll = visibleRows > MAX_VISIBLE_ROWS;
+  const containerH   = shouldScroll ? ganttHeight(MAX_VISIBLE_ROWS) : chartH;
+
+  const criticalCount = scheduled.filter((t) => t.isCritical).length;
+  const labelColor    = isDark ? '#e4e4e7' : '#475569';
+
+  /* ── Error state ── */
   if (chartError) {
     return (
       <section className="card overflow-hidden">
@@ -101,9 +124,10 @@ export default function GanttChart({ tasks, projectEnd, allTasks, theme }) {
     );
   }
 
+  /* ── Render ── */
   return (
     <section className="card overflow-hidden animate-slide-up" aria-labelledby="gantt-title">
-      {/* ── Header — matching Work Breakdown ── */}
+      {/* Header */}
       <div className="panel-head">
         <div>
           <p className="section-label">Timeline</p>
@@ -121,10 +145,16 @@ export default function GanttChart({ tasks, projectEnd, allTasks, theme }) {
         </div>
       </div>
 
-      {/* ── Chart body ── */}
+      {/* Chart body */}
       <div className="p-4 sm:p-5">
-        <div className="overflow-x-auto overflow-y-hidden border border-slate-100/60 bg-transparent dark:border-zinc-800/40">
-          <div className="gantt-container flex flex-col" style={{ minWidth: minChartW }}>
+        <div
+          className="overflow-x-auto border border-slate-100/60 dark:border-zinc-800/40 custom-scrollbar"
+          style={{ 
+            height: shouldScroll ? containerH : chartH,
+            overflowY: shouldScroll ? 'auto' : 'hidden' 
+          }}
+        >
+          <div className="gantt-container" style={{ minWidth: minChartW }}>
             <Chart
               chartType="Timeline"
               width="100%"
@@ -134,13 +164,31 @@ export default function GanttChart({ tasks, projectEnd, allTasks, theme }) {
                 timeline: {
                   showRowLabels: true,
                   colorByRowLabel: false,
-                  barHeight: 30,
-                  rowLabelStyle: { fontSize: 13, fontName: 'Inter', color: labelColor },
-                  barLabelStyle: { fontSize: 12, fontName: 'Inter', color: labelColor },
+                  barHeight: 28,
+                  rowLabelStyle: {
+                    fontSize: 13,
+                    fontName: 'Inter, system-ui, sans-serif',
+                    color: labelColor,
+                  },
+                  barLabelStyle: {
+                    fontSize: 11,
+                    fontName: 'Inter, system-ui, sans-serif',
+                    color: '#ffffff',
+                  },
                 },
                 colors: barColors,
                 tooltip: { isHtml: true },
                 backgroundColor: 'transparent',
+                hAxis: {
+                  minValue: addDaysToAnchor(anchor, 0),
+                  maxValue: addDaysToAnchor(anchor, Math.max(projectEnd ?? 0, 7)),
+                  format: 'MMM d',
+                  textStyle: {
+                    fontSize: 11,
+                    color: labelColor,
+                    fontName: 'Inter, system-ui, sans-serif',
+                  },
+                },
               }}
               chartEvents={[
                 {
@@ -148,37 +196,46 @@ export default function GanttChart({ tasks, projectEnd, allTasks, theme }) {
                   callback: () => {
                     const container = document.querySelector('.gantt-container');
                     if (!container) return;
+                    
+                    const taskNames = scheduled.map(t => t.name);
                     const labels = container.querySelectorAll('svg text[text-anchor="end"]');
+                    
                     labels.forEach((label) => {
-                      const originalX = parseFloat(label.getAttribute('x'));
-                      if (originalX && !label.dataset.centered) {
-                        const center = (originalX + 5) / 2;
-                        label.setAttribute('x', center.toString());
-                        label.setAttribute('text-anchor', 'middle');
-                        label.dataset.centered = 'true';
+                      if (taskNames.includes(label.textContent)) {
+                        const originalX = parseFloat(label.getAttribute('x'));
+                        if (originalX && !label.dataset.centered) {
+                          label.setAttribute('x', (originalX / 2).toString());
+                          label.setAttribute('text-anchor', 'middle');
+                          label.dataset.centered = 'true';
+                        }
                       }
                     });
                   },
                 },
                 {
                   eventName: 'error',
-                  callback: () => setChartError('Chart failed to load. Please check your internet connection.'),
+                  callback: ({ message }) =>
+                    setChartError(
+                      message || 'Chart failed to load. Please check your internet connection.'
+                    ),
                 },
               ]}
             />
           </div>
         </div>
 
-        {/* ── Legend ── */}
-        <div className="mt-4 flex items-center gap-5 border-t border-slate-100/60 pt-4 dark:border-zinc-800/40">
+        {/* Legend */}
+        <div className="mt-4 flex flex-wrap items-center gap-5 border-t border-slate-100/60 pt-4 dark:border-zinc-800/40">
           <span className="flex items-center gap-2 text-xs font-medium text-slate-500 dark:text-zinc-400">
-            <span className="inline-block h-3 w-6 rounded-md bg-brand-500 shadow-sm" /> Normal Task
+            <span className="inline-block h-3 w-6 rounded-sm" style={{ background: NORMAL_COLOR }} />
+            Normal Task
           </span>
           <span className="flex items-center gap-2 text-xs font-medium text-slate-500 dark:text-zinc-400">
-            <span className="inline-block h-3 w-6 rounded-md bg-red-500 shadow-sm" /> Critical Path
+            <span className="inline-block h-3 w-6 rounded-sm" style={{ background: CRITICAL_COLOR }} />
+            Critical Path
           </span>
           <span className="ml-auto text-xs text-slate-400 dark:text-zinc-500">
-            {scheduled.length} {scheduled.length === 1 ? 'task' : 'tasks'} scheduled
+            {visibleRows} {visibleRows === 1 ? 'task' : 'tasks'} scheduled
           </span>
         </div>
       </div>

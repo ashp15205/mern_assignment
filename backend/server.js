@@ -5,6 +5,7 @@ const morgan = require('morgan');
 const connectDB = require('./config/db');
 const { isDbReady } = require('./config/db');
 const taskRoutes = require('./routes/taskRoutes');
+const authRoutes = require('./routes/authRoutes');
 const { notFound, errorHandler } = require('./middleware/errorHandler');
 
 const app = express();
@@ -25,6 +26,7 @@ app.get('/health', (_req, res) => {
   });
 });
 
+app.use('/auth', authRoutes);
 app.use('/tasks', taskRoutes);
 
 app.use(notFound);

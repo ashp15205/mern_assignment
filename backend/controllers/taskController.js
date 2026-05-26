@@ -1,7 +1,7 @@
 const taskService = require('../services/taskService');
 
 const createTask = async (req, res) => {
-  const result = await taskService.createTask(req.body);
+  const result = await taskService.createTask({ ...req.body, user: req.user.id }, req.user.id);
   res.status(201).json({
     success: true,
     message: 'Task created and schedule updated',
@@ -10,7 +10,7 @@ const createTask = async (req, res) => {
 };
 
 const getTasks = async (req, res) => {
-  const { tasks, allTasks, meta } = await taskService.getTasks(req.query);
+  const { tasks, allTasks, meta } = await taskService.getTasks(req.query, req.user.id);
   res.json({
     success: true,
     count: tasks.length,
@@ -21,7 +21,7 @@ const getTasks = async (req, res) => {
 };
 
 const deleteTask = async (req, res) => {
-  const result = await taskService.deleteTask(req.params.id);
+  const result = await taskService.deleteTask(req.params.id, req.user.id);
   res.json({
     success: true,
     message: 'Task deleted and schedule recalculated',
@@ -30,7 +30,7 @@ const deleteTask = async (req, res) => {
 };
 
 const generateSchedule = async (req, res) => {
-  const result = await taskService.generateSchedule();
+  const result = await taskService.generateSchedule(req.user.id);
   res.json({
     success: true,
     message: result.message || 'Schedule generated',
@@ -39,7 +39,7 @@ const generateSchedule = async (req, res) => {
 };
 
 const updateTask = async (req, res) => {
-  const result = await taskService.updateTask(req.params.id, req.body);
+  const result = await taskService.updateTask(req.params.id, req.body, req.user.id);
   res.json({
     success: true,
     message: 'Task updated and schedule recalculated',

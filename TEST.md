@@ -15,9 +15,10 @@ Use this checklist to verify the app, API, and MongoDB Atlas data.
 | Level | Name | Meaning |
 |-------|------|---------|
 | **Database** | `mini-project-planner` | From `MONGODB_URI` in `backend/.env` |
+| **Collection** | `users` | Stores registered users |
 | **Collection** | `tasks` | Mongoose pluralizes model `Task` → `tasks` |
 
-If the database does not appear yet → create one task in the UI first, then refresh Atlas.
+If the database does not appear yet → create an account and one task in the UI first, then refresh Atlas.
 
 ### What each document looks like
 
@@ -41,6 +42,7 @@ After creating a task, open **tasks** → click a document. Example fields:
 
 | Field | Set by | What to verify |
 |-------|--------|----------------|
+| `userId` | Backend | Matches the `_id` of the user who created it |
 | `name` | You (form) | Matches task name |
 | `duration` | You (form) | Number ≥ 0 |
 | `dependencies` | You (picker) | Array of `_id` strings (ObjectIds) of predecessor tasks |
@@ -64,8 +66,9 @@ After creating a task, open **tasks** → click a document. Example fields:
 ### Quick Atlas tests
 
 - [ ] **T-ATLAS-1:** Empty app → no `mini-project-planner` DB (or empty `tasks`).
-- [ ] **T-ATLAS-2:** Create 1 task → 1 document in `tasks`.
-- [ ] **T-ATLAS-3:** Create 4 assignment tasks → 4 documents.
+- [ ] **T-ATLAS-2:** Sign up new user → 1 document in `users`.
+- [ ] **T-ATLAS-3:** Create 1 task → 1 document in `tasks`, check its `userId` matches the user.
+- [ ] **T-ATLAS-4:** Create 4 assignment tasks → 4 documents.
 - [ ] **T-ATLAS-4:** Delete one task → document gone in Atlas + UI.
 - [ ] **T-ATLAS-5:** `dependencies` on Testing includes **two** ObjectIds (Frontend + Backend).
 
@@ -128,8 +131,10 @@ Create in order:
 
 | ID | Steps | Expected | Pass |
 |----|-------|----------|------|
-| T-UI-01 | Open app | No crash; empty state or task list | [ ] |
-| T-UI-02 | Create task (name + duration) | Appears in table; Gantt updates | [ ] |
+| T-UI-01 | Open app unauthenticated | Shows Landing Page, dashboard hidden | [ ] |
+| T-UI-02 | Sign up / Log in | Redirects to dashboard | [ ] |
+| T-UI-03 | Log out | Clears session, returns to Landing Page | [ ] |
+| T-UI-04 | Create task (name + duration) | Appears in table; Gantt updates | [ ] |
 | T-UI-03 | Use dependency checkboxes | No manual ID typing needed | [ ] |
 | T-UI-04 | Toggle dark mode → refresh | Theme remembered | [ ] |
 | T-UI-05 | Search by task name | Table filters; Gantt still shows all tasks | [ ] |
@@ -138,14 +143,16 @@ Create in order:
 | T-UI-08 | Change status dropdown | Status updates; schedule days unchanged | [ ] |
 | T-UI-09 | Delete → Cancel confirm | Task remains | [ ] |
 | T-UI-10 | Delete → Confirm | Task removed; schedule recalculated | [ ] |
-| T-UI-11 | Recalculate Schedule button | All `startDay`/`endDay` refresh | [ ] |
-| T-UI-12 | API banner when DB down | Warning shown; Retry works after DB up | [ ] |
+| T-UI-13 | Recalculate Schedule button | All `startDay`/`endDay` refresh | [ ] |
+| T-UI-14 | API banner when DB down | Warning shown; Retry works after DB up | [ ] |
 
 ---
 
-## Part E — API tests (PowerShell)
+## Part E — API tests (Requires Auth Token)
 
 Base URL: `http://localhost:5000`
+
+> **Note**: Because the API is now protected by JWT, standard PowerShell `Invoke-RestMethod` calls to `/tasks` will return `401 Unauthorized`. For API testing, you must first POST to `/auth/login` to get a token, and pass it in the `Authorization: Bearer <token>` header.
 
 ### Health
 

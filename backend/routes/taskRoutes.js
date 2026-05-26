@@ -3,9 +3,11 @@ const router = express.Router();
 const asyncHandler = require('../utils/asyncHandler');
 const { requireBody } = require('../middleware/validateRequest');
 const requireDb = require('../middleware/requireDb');
+const { protect } = require('../middleware/auth');
 const taskController = require('../controllers/taskController');
 
 router.use(requireDb);
+router.use(protect);
 
 router.get('/', asyncHandler(taskController.getTasks));
 router.post('/', requireBody(['name', 'duration']), asyncHandler(taskController.createTask));
