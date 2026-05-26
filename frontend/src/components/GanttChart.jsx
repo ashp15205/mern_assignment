@@ -84,12 +84,18 @@ export default function GanttChart({ tasks, projectEnd, allTasks, theme }) {
 
   /* ── Dimensions ── */
   const visibleRows = scheduled.length;
-  const chartH = ganttHeight(visibleRows);
+  
+  // 1. Give Google Charts a massive height so it NEVER spawns a buggy internal scroll area
+  const safeChartH = visibleRows * 50 + 100;
+  
+  // 2. The mathematically exact visual height of the tasks + the timeline axis
+  const visualH = visibleRows * 42 + 48;
+  
+  // 3. The viewport locks exactly after 4 tasks
+  const maxWrapperH = (4 * 42 + 48) + 5;
+  
   const timelineEnd = Math.max(projectEnd ?? 0, 7);
   const minChartW = Math.max(100, timelineEnd * 40 + 150);
-
-  // Viewport max-height is exactly 4 tasks + a 10px buffer to prevent scrollbars from clipping text
-  const maxWrapperH = ganttHeight(MAX_VISIBLE_ROWS) + 15;
 
   const criticalCount = scheduled.filter((t) => t.isCritical).length;
   const labelColor = isDark ? '#e4e4e7' : '#475569';
@@ -133,31 +139,25 @@ export default function GanttChart({ tasks, projectEnd, allTasks, theme }) {
         </div>
       </div>
 
-      <style>{`
-        /* Force Google Charts to never render its own internal vertical scrollbar */
-        .gantt-container > div > div {
-          overflow-y: hidden !important;
-        }
-      `}</style>
-
       {/* Chart body */}
       <div className="p-4 sm:px-5 sm:pt-5 sm:pb-3">
         <div
           className="overflow-x-auto overflow-y-auto border border-slate-100/60 dark:border-zinc-800/40 custom-scrollbar"
           style={{ maxHeight: `${maxWrapperH}px` }}
         >
+          {/* We crop the exact visual height here to slice off Google Charts' massive invisible bounding box */}
           <div 
             className="gantt-container" 
             style={{ 
               minWidth: minChartW, 
-              height: `${chartH}px`, 
+              height: `${visualH}px`, 
               overflowY: 'hidden' 
             }}
           >
             <Chart
               chartType="Timeline"
               width="100%"
-              height={`${chartH}px`}
+              height={`${safeChartH}px`}
               data={[COLUMNS, ...rows]}
               options={{
                 timeline: {
