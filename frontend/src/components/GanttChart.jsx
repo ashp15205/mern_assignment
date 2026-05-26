@@ -71,14 +71,30 @@ export default function GanttChart({ tasks, projectEnd, allTasks, theme }) {
     const crit = t.isCritical
       ? '<span style="background:#fef2f2;color:#dc2626;padding:2px 6px;border-radius:4px;font-size:11px;font-weight:600;margin-left:6px;">Critical</span>'
       : '';
+    const statusBadge = t.status === 'In Progress'
+      ? '<span style="background:#fffbeb;color:#d97706;padding:2px 6px;border-radius:4px;font-size:11px;font-weight:600;margin-left:6px;">In Progress</span>'
+      : t.status === 'Completed'
+        ? '<span style="background:#ecfdf5;color:#059669;padding:2px 6px;border-radius:4px;font-size:11px;font-weight:600;margin-left:6px;">Completed</span>'
+        : '';
 
     const tooltip = `
       <div style="padding:10px 14px;font-family:Inter,system-ui,sans-serif;white-space:nowrap;border-radius:8px;border:1px solid ${ttBorder};background:${ttBg};box-shadow:0 4px 12px rgba(0,0,0,.15);">
-        <div style="font-weight:600;color:${ttTitle};font-size:14px;margin-bottom:4px;display:flex;align-items:center;">${t.name}${crit}</div>
+        <div style="font-weight:600;color:${ttTitle};font-size:14px;margin-bottom:4px;display:flex;align-items:center;">${t.name}${crit}${statusBadge}</div>
         <div style="color:${ttSub};font-size:12px;margin-bottom:2px;">📅 ${fmt(start)} – ${fmt(end)}</div>
-        <div style="color:${ttSub};font-size:12px;">⏱ ${t.duration} day${t.duration !== 1 ? 's' : ''} &nbsp;|&nbsp; Day ${t.startDay} → ${t.endDay}</div>
+        <div style="color:${ttSub};font-size:12px;">⏱ ${t.duration} day${t.duration !== 1 ? 's' : ''} &nbsp;|&nbsp; Day ${t.startDay}→${t.endDay}</div>
       </div>`;
-    const color = t.isCritical ? CRITICAL_COLOR : NORMAL_COLOR;
+    const NORMAL_COLORS = {
+      'Pending': '#6366f1',
+      'In Progress': '#6366f2',
+      'Completed': '#6366f3',
+    };
+    const CRITICAL_COLORS = {
+      'Pending': '#ef4444',
+      'In Progress': '#ef4445',
+      'Completed': '#ef4446',
+    };
+
+    const color = t.isCritical ? CRITICAL_COLORS[t.status || 'Pending'] : NORMAL_COLORS[t.status || 'Pending'];
     return [t.name, t.name, tooltip, color, start, end];
   });
 
@@ -139,6 +155,29 @@ export default function GanttChart({ tasks, projectEnd, allTasks, theme }) {
         </div>
       </div>
 
+      <style>{`
+        /* Target exact hex colors encoded by the React component to natively apply borders */
+        
+        /* In Progress - Dashed Amber Border */
+        .gantt-container rect[fill="#6366f2"], 
+        .gantt-container rect[fill="#ef4445"] { 
+          stroke: #f59e0b !important; /* Bright Amber */
+          stroke-width: 3px !important; 
+          stroke-dasharray: 6 4 !important; 
+        }
+        
+        /* Completed - Solid Emerald Border */
+        .gantt-container rect[fill="#6366f3"], 
+        .gantt-container rect[fill="#ef4446"] { 
+          stroke: #10b981 !important; /* Bright Emerald */
+          stroke-width: 3.5px !important; 
+        }
+
+        /* If Critical (Red), make the borders even brighter to contrast */
+        .gantt-container rect[fill="#ef4445"] { stroke: #fbbf24 !important; }
+        .gantt-container rect[fill="#ef4446"] { stroke: #34d399 !important; }
+      `}</style>
+
       {/* Chart body */}
       <div className="p-4 sm:px-5 sm:pt-5 sm:pb-3">
         <div
@@ -195,6 +234,7 @@ export default function GanttChart({ tasks, projectEnd, allTasks, theme }) {
                     const container = document.querySelector('.gantt-container');
                     if (!container) return;
 
+                    // Left-align row labels
                     const taskNames = scheduled.map(t => t.name);
                     const labels = container.querySelectorAll('svg text[text-anchor="end"]');
 
@@ -202,7 +242,6 @@ export default function GanttChart({ tasks, projectEnd, allTasks, theme }) {
                       if (taskNames.includes(label.textContent)) {
                         const originalX = parseFloat(label.getAttribute('x'));
                         if (originalX && !label.dataset.centered) {
-                          // Left-align with 15px padding to prevent long names from clipping
                           label.setAttribute('x', '15');
                           label.setAttribute('text-anchor', 'start');
                           label.dataset.centered = 'true';
@@ -224,14 +263,22 @@ export default function GanttChart({ tasks, projectEnd, allTasks, theme }) {
         </div>
 
         {/* Legend */}
-        <div className="mt-3 flex flex-wrap items-center gap-5 border-t border-slate-100/60 pt-4 dark:border-zinc-800/40">
+        <div className="mt-3 flex flex-wrap items-center gap-4 border-t border-slate-100/60 pt-4 dark:border-zinc-800/40">
           <span className="flex items-center gap-2 text-xs font-medium text-slate-500 dark:text-zinc-400">
             <span className="inline-block h-3 w-6 rounded-sm" style={{ background: NORMAL_COLOR }} />
-            Normal Task
+            Normal
           </span>
           <span className="flex items-center gap-2 text-xs font-medium text-slate-500 dark:text-zinc-400">
             <span className="inline-block h-3 w-6 rounded-sm" style={{ background: CRITICAL_COLOR }} />
-            Critical Path
+            Critical
+          </span>
+          <span className="flex items-center gap-2 text-xs font-medium text-slate-500 dark:text-zinc-400">
+            <span className="inline-block h-3 w-6 rounded-sm border-2" style={{ borderColor: '#f59e0b', background: 'transparent', borderStyle: 'dashed' }} />
+            In Progress
+          </span>
+          <span className="flex items-center gap-2 text-xs font-medium text-slate-500 dark:text-zinc-400">
+            <span className="inline-block h-3 w-6 rounded-sm border-2" style={{ borderColor: '#10b981', background: 'transparent' }} />
+            Completed
           </span>
           <span className="ml-auto text-xs text-slate-400 dark:text-zinc-500">
             {visibleRows} {visibleRows === 1 ? 'task' : 'tasks'} scheduled

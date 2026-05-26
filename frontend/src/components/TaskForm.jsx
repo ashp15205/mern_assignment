@@ -3,7 +3,7 @@ import { TASK_STATUSES } from '../utils/constants';
 import { validateDependencyIds } from '../utils/validation';
 import DependencyPicker from './DependencyPicker';
 
-const emptyForm = { name: '', duration: '0', dependencyIds: [], status: 'Pending' };
+const emptyForm = { name: '', duration: '1', dependencyIds: [], status: 'Pending' };
 
 export default function TaskForm({ tasks, editingTask, onCancelEdit, onSubmit, loading }) {
   const [form, setForm] = useState(emptyForm);
@@ -29,7 +29,7 @@ export default function TaskForm({ tasks, editingTask, onCancelEdit, onSubmit, l
     const name = form.name.trim();
     const duration = Number(form.duration);
     if (!name) { setLocalError('Task name is required'); return; }
-    if (Number.isNaN(duration) || duration < 0) { setLocalError('Invalid duration'); return; }
+    if (Number.isNaN(duration) || duration < 1) { setLocalError('Duration must be at least 1 day'); return; }
     const depErr = validateDependencyIds(form.dependencyIds);
     if (depErr) { setLocalError(depErr); return; }
 
@@ -85,7 +85,7 @@ export default function TaskForm({ tasks, editingTask, onCancelEdit, onSubmit, l
             <input
               id="task-duration"
               type="number"
-              min={0}
+              min={1}
               value={form.duration}
               onChange={(e) => setForm({ ...form, duration: e.target.value })}
               className="input-field"

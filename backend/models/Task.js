@@ -18,7 +18,7 @@ const taskSchema = new mongoose.Schema(
     duration: {
       type: Number,
       required: [true, 'Duration is required'],
-      min: [0, 'Duration cannot be negative'],
+      min: [1, 'Duration must be at least 1 day'],
     },
     dependencies: {
       type: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Task' }],

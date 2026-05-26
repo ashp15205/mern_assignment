@@ -11,10 +11,12 @@ A production-quality MERN stack project planner built with a custom topological 
 
 - **Task management** — full CRUD (create, read, update/edit, delete) for name, duration, dependencies, and status
 - **Scheduling engine** — earliest-start scheduling; multiple dependencies use MAX(predecessor end)
-- **Gantt chart** — Google Charts Timeline with auto-centered text, dynamic dark mode, and critical path highlighting
-- **Dependency graph** — animated SVG visualization with staggered node entrances
+- **Gantt chart** — Google Charts Timeline with auto-centered text, dynamic dark mode, critical path + status border highlighting
+- **Status visual highlighting** — In Progress bars get a dashed amber border; Completed bars get a solid green border; works in both the Gantt chart and Dependency Graph
+- **Workflow enforcement** — dependency-based status locking: a task can only be marked In Progress or Completed once all its dependencies are Completed; enforced on both frontend (🔒 UI lock) and backend (400 validation)
+- **Dependency graph** — animated SVG visualization with staggered node entrances and status-aware node borders
 - **Critical path** — dynamic programming identifies the longest chain; highlighted in table + chart
-- **Edge-case safe** — cycles, self-deps, invalid IDs, duplicates, negative/zero duration, empty lists
+- **Edge-case safe** — cycles, self-deps, invalid IDs, duplicates, min 1-day duration, empty lists
 - **Premium UI** — glassmorphism cards, gradient buttons, micro-animations, Inter + Space Grotesk typography
 - **Dark / Light mode** — theme toggle with persistence across sessions
 - **Filters & search** — debounced search, status filter, sort by name/duration/start/status
@@ -289,6 +291,15 @@ Use the **dependency checkboxes** under "Predecessors".
 
 The Work Breakdown table, Gantt chart, and Dependency Graph update automatically after each create.
 
+### 6. Try workflow enforcement
+
+After creating the four tasks above:
+
+1. Try changing **Frontend** status to `In Progress` — it will be **locked (🔒)** until Design is Completed.
+2. Mark **Design** → `Completed`.
+3. Now **Frontend** and **Backend** are unlocked — you can mark them `In Progress`.
+4. Try reverting **Design** back to `Pending` — the backend will reject it with a clear error message because Frontend/Backend are already started.
+
 ### Quick reference
 
 | Action | Command |
@@ -395,6 +406,16 @@ Regenerate schedule for all tasks.
 ### `PATCH /tasks/:id`
 Update task fields; schedule auto-recalculates.
 
+**Workflow enforcement rules (status changes):**
+
+| Attempt | Condition | Result |
+|---------|-----------|--------|
+| Set `In Progress` or `Completed` | Any dependency is not `Completed` | `400` — lists blocking task names |
+| Revert to `Pending` | Any dependent task is already `In Progress` or `Completed` | `400` — lists affected task names |
+| Any other field update | — | `200` success |
+
+**Status codes:** `200` success, `400` validation / workflow violation, `404` not found
+
 ---
 
 ### `DELETE /tasks/:id`
@@ -422,6 +443,9 @@ The frontend features a premium, modern design inspired by Apple's design langua
 4. **react-google-charts** — reliable React Timeline chart; avoids custom chart code.
 5. **Error boundary + structured API errors** — demo stability priority.
 6. **Glassmorphism + animations** — premium feel that differentiates from typical CRUD apps.
+7. **1-indexed day display** — the UI shows Day 1–3 instead of Day 0–3 for natural human readability. The backend engine remains 0-indexed for mathematical correctness.
+8. **Dual-layer status enforcement** — frontend disables the dropdown (🔒) for immediate UX feedback; backend validates again independently to prevent API-level bypass. This models real enterprise workflow systems.
+9. **CSS-encoded status borders in Gantt** — Google Charts overrides DOM mutations on hover, so status is encoded as near-identical hex fill colors and targeted via CSS `[fill=...]` attribute selectors. This makes borders immune to hover redraws.
 
 ## Scalability
 

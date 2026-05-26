@@ -25,7 +25,7 @@ function layoutDependencyGraph(tasks) {
     const id = String(t._id);
     const l = level.get(id) ?? 0;
     if (!byLevel.has(l)) byLevel.set(l, []);
-    byLevel.get(l).push({ id, name: t.name, critical: t.isCritical, duration: t.duration });
+    byLevel.get(l).push({ id, name: t.name, critical: t.isCritical, duration: t.duration, status: t.status || 'Pending' });
   });
 
   for (const arr of byLevel.values()) arr.sort((a, b) => a.name.localeCompare(b.name));
@@ -168,8 +168,17 @@ export default function DependencyGraph({ tasks, theme }) {
                   height={NODE_H}
                   rx={12}
                   fill={n.critical ? 'url(#node-grad-crit)' : 'url(#node-grad)'}
-                  stroke={n.critical ? (isDark ? '#dc2626' : '#fca5a5') : (isDark ? '#3f3f46' : '#e2e8f0')}
-                  strokeWidth="1"
+                  stroke={
+                    n.status === 'In Progress'
+                      ? '#f59e0b'
+                      : n.status === 'Completed'
+                        ? '#10b981'
+                        : n.critical
+                          ? (isDark ? '#dc2626' : '#fca5a5')
+                          : (isDark ? '#3f3f46' : '#e2e8f0')
+                  }
+                  strokeWidth={n.status === 'In Progress' || n.status === 'Completed' ? '2.5' : '1'}
+                  strokeDasharray={n.status === 'In Progress' ? '6 4' : 'none'}
                   filter="url(#node-shadow)"
                 />
 
@@ -205,12 +214,18 @@ export default function DependencyGraph({ tasks, theme }) {
         </div>
 
         {/* ── Legend ── */}
-        <div className="mt-4 flex items-center gap-5 border-t border-slate-100/60 pt-4 dark:border-zinc-800/40">
+        <div className="mt-4 flex flex-wrap items-center gap-4 border-t border-slate-100/60 pt-4 dark:border-zinc-800/40">
           <span className="flex items-center gap-2 text-xs font-medium text-slate-500 dark:text-zinc-400">
             <span className="inline-block h-3 w-3 rounded-full bg-brand-400" /> Normal
           </span>
           <span className="flex items-center gap-2 text-xs font-medium text-slate-500 dark:text-zinc-400">
             <span className="inline-block h-3 w-3 rounded-full bg-red-500" /> Critical
+          </span>
+          <span className="flex items-center gap-2 text-xs font-medium text-slate-500 dark:text-zinc-400">
+            <span className="inline-block h-3 w-3 rounded-full border-2" style={{ borderColor: '#f59e0b', borderStyle: 'dashed' }} /> In Progress
+          </span>
+          <span className="flex items-center gap-2 text-xs font-medium text-slate-500 dark:text-zinc-400">
+            <span className="inline-block h-3 w-3 rounded-full border-2" style={{ borderColor: '#10b981' }} /> Completed
           </span>
           <span className="flex items-center gap-2 text-xs font-medium text-slate-500 dark:text-zinc-400">
             <svg width="20" height="2"><line x1="0" y1="1" x2="20" y2="1" stroke="#c7d2fe" strokeWidth="1.5" strokeDasharray="4 3" /></svg>

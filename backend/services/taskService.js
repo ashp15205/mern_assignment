@@ -158,7 +158,50 @@ async function updateTask(id, body, userId) {
     task.name = name;
   }
   if (body.duration !== undefined) task.duration = validateDuration(body.duration);
-  if (body.status !== undefined) task.status = validateStatus(body.status) || task.status;
+
+  // ── Dependency-based status enforcement ──────────────────────────────────
+  if (body.status !== undefined) {
+    const newStatus = validateStatus(body.status) || task.status;
+
+    // FORWARD check: to mark In Progress or Completed, ALL dependencies must be Completed
+    if (newStatus === 'In Progress' || newStatus === 'Completed') {
+      if (task.dependencies && task.dependencies.length > 0) {
+        const depTasks = await Task.find({
+          _id: { $in: task.dependencies },
+          user: userId,
+        }).select('name status').lean();
+
+        const blockers = depTasks.filter((d) => d.status !== 'Completed');
+        if (blockers.length > 0) {
+          const names = blockers.map((d) => `"${d.name}"`).join(', ');
+          throw new AppError(
+            `Cannot mark as "${newStatus}" — the following dependencies are not yet Completed: ${names}`,
+            400
+          );
+        }
+      }
+    }
+
+    // BACKWARD check: cannot move back to Pending if dependents are already In Progress or Completed
+    if (newStatus === 'Pending' && task.status !== 'Pending') {
+      const dependents = await Task.find({
+        user: userId,
+        dependencies: task._id,
+        status: { $in: ['In Progress', 'Completed'] },
+      }).select('name status').lean();
+
+      if (dependents.length > 0) {
+        const names = dependents.map((d) => `"${d.name}" (${d.status})`).join(', ');
+        throw new AppError(
+          `Cannot revert to "Pending" — the following dependent tasks are already started: ${names}`,
+          400
+        );
+      }
+    }
+
+    task.status = newStatus;
+  }
+  // ─────────────────────────────────────────────────────────────────────────
 
   if (body.dependencies !== undefined) {
     const deps = validateDependencies(body.dependencies, id, existingIds);

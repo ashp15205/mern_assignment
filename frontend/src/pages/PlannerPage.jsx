@@ -97,6 +97,7 @@ export default function PlannerPage({ theme, onToggleTheme }) {
               {/* ── 1. Work Breakdown ── */}
               <TaskList
                 tasks={tasks}
+                allTasks={allTasks}
                 onEdit={setEditingTask}
                 onDelete={handleDelete}
                 onStatusChange={updateTask}

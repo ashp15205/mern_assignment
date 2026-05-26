@@ -102,9 +102,11 @@ App
 ## 5. User Flows
 
 1. **Happy path:** Create tasks → dependencies auto-schedule → view Gantt
-2. **Critical path review:** Critical tasks highlighted in table + red Gantt bars
-3. **Filter/sort:** Narrow task list without affecting stored schedule
-4. **Error recovery:** Dismiss alert, fix input, retry
+2. **Workflow enforcement:** Mark dependency as Completed → unlock dependent task → mark In Progress/Completed
+3. **Critical path review:** Critical tasks highlighted in table + red Gantt bars
+4. **Status visibility:** In Progress tasks show dashed amber borders; Completed tasks show solid green borders in both Gantt and Dependency Graph
+5. **Filter/sort:** Narrow task list without affecting stored schedule
+6. **Error recovery:** Dismiss alert, fix input, retry
 
 ## 6. Use-Case Handling
 
@@ -113,9 +115,11 @@ App
 | New independent task | `startDay=0`, `endDay=duration` |
 | Task with one dependency | Starts at predecessor `endDay` |
 | Multiple dependencies | Starts at `MAX(predecessor endDay)` |
-| Zero-duration milestone | `startDay === endDay` |
+| Minimum duration | Enforced at 1 day; 0 rejected (400) |
 | Delete task | Removed from others' `dependencies`, reschedule |
-| Status change | UI only (does not alter schedule days) |
+| Status change (valid) | Allowed only when all dependencies are Completed |
+| Status revert (invalid) | Blocked when any dependent is already started |
+| UI day display | Day 0→end (0-indexed, matching assignment spec); form input minimum is 1 day |
 
 ## 7. Edge-Case Handling
 
@@ -125,13 +129,14 @@ App
 | Self-dependency | Rejected at validation (400) |
 | Invalid task ID in deps | 400 with clear message |
 | Duplicate dependencies | Normalized via `Set` |
-| Negative duration | Rejected (400) |
-| Zero duration | Allowed; end equals start |
+| Duration < 1 | Rejected (400) — minimum is 1 day |
+| Status forward blocked | 400 — lists incomplete dependency names |
+| Status backward blocked | 400 — lists already-started dependent names |
 | Empty task list | Schedule returns empty, UI shows empty states |
 | Duplicate task name | 409 Conflict |
 | API failure | Axios interceptor → user-facing alert |
 | Gantt render failure | Caught; fallback message, app continues |
-
+| Gantt hover erasing borders | Solved via CSS `[fill=...]` attribute selectors on encoded hex colors |
 ## 8. Assumptions
 
 - Single global project (no multi-tenant projects)
@@ -153,11 +158,13 @@ App
 | Requirement | Status |
 |-------------|--------|
 | MERN stack + modular folders | Met |
-| POST/GET /tasks, POST /schedule, DELETE /tasks/:id | Met (+ PATCH for status) |
+| POST/GET /tasks, POST /schedule, DELETE /tasks/:id | Met (+ PATCH for status/edit) |
 | Scheduling: Day 0, MAX(deps), end = start + duration | Met |
 | Gantt (library-based) | Met — `react-google-charts` Timeline |
 | Edge cases (cycles, self-dep, invalid IDs, etc.) | Met |
-| Advanced: status, critical path, theme, filters, dep graph | Met |
+| Advanced: status workflow enforcement, critical path | Met |
+| Advanced: status-based visual highlighting | Met — Gantt + Dependency Graph |
+| Advanced: theme, filters, dep graph | Met |
 | Production stability | Enhanced — see §11 |
 
 ## 11. Reliability Enhancements (post-review)

@@ -21,8 +21,8 @@ function validateDuration(duration) {
   if (Number.isNaN(num)) {
     throw new AppError('Duration must be a number', 400);
   }
-  if (num < 0) {
-    throw new AppError('Duration cannot be negative', 400);
+  if (num < 1) {
+    throw new AppError('Duration must be at least 1 day', 400);
   }
   return num;
 }

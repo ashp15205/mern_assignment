@@ -9,9 +9,12 @@
 | F3 | Multiple dependencies | A(3d), B(2d), C depends on A+B (4d) | C starts Day 5 (max of 3,2) |
 | F4 | Delete task | DELETE A | B deps cleaned, schedule recalculated |
 | F5 | Manual reschedule | POST /tasks/schedule | All tasks updated |
-| F6 | Status update | PATCH status=In Progress | Status saved, schedule unchanged |
-| F7 | Filter by status | GET ?status=Pending | Only pending tasks |
-| F8 | Search | GET ?search=API | Matching names only |
+| F6 | Status update (locked) | Try marking B In Progress before A Completed | 400 error; dropdown locked (🔒) |
+| F7 | Status update (valid) | Mark A Completed, then B In Progress | B status saved |
+| F8 | Status revert blocked | Mark B In Progress, try reverting A to Pending | 400 error: B already started |
+| F9 | Filter by status | GET ?status=Pending | Only pending tasks |
+| F10 | Search | GET ?search=API | Matching names only |
+| F11 | Min duration | POST duration=0 | 400 error: must be at least 1 day |
 
 ## 2. API Test Cases
 
@@ -21,7 +24,8 @@
 |------|------|--------|---------|
 | Valid | `{ "name":"T1", "duration":5 }` | 201 | success |
 | Missing name | `{ "duration":5 }` | 400 | Missing required fields |
-| Negative duration | `{ "name":"T", "duration":-1 }` | 400 | cannot be negative |
+| Zero duration | `{ "name":"T", "duration":0 }` | 400 | must be at least 1 day |
+| Negative duration | `{ "name":"T", "duration":-1 }` | 400 | must be at least 1 day |
 | Invalid dep ID | `{ "name":"T", "duration":1, "dependencies":["bad"] }` | 400 | Invalid dependency |
 | Duplicate name | Same name twice | 409 | already exists |
 
@@ -38,6 +42,16 @@
 |------|----------|
 | Empty | `{ tasks: [], projectEnd: 0 }` |
 | Valid graph | Updated start/end on all |
+
+### PATCH /tasks/:id (status workflow)
+
+| Case | Condition | Status | Message |
+|------|-----------|--------|---------|
+| Mark In Progress | Dep not Completed | 400 | Cannot mark — dep names listed |
+| Mark Completed | Dep not Completed | 400 | Cannot mark — dep names listed |
+| Mark In Progress | All deps Completed | 200 | success |
+| Revert to Pending | Dependent is In Progress | 400 | Cannot revert — dependent names listed |
+| Revert to Pending | No dependents started | 200 | success |
 
 ### DELETE /tasks/:id
 
@@ -59,6 +73,12 @@
 | U6 | Delete confirm | Task removed |
 | U7 | Empty Gantt | Placeholder message |
 | U8 | Critical badge | Red badge on critical tasks |
+| U9 | Locked status dropdown | 🔒 icon shown, dropdown disabled when dep not Completed |
+| U10 | In Progress Gantt border | Dashed amber border on In Progress bar |
+| U11 | Completed Gantt border | Solid green border on Completed bar |
+| U12 | Dep graph status border | Amber (dashed) / green borders on graph nodes |
+| U13 | Min duration input | Cannot enter 0; form shows error |
+| U14 | Day display | Shows Day 1–3 format (1-indexed) |
 
 ## 4. Validation Test Cases
 
@@ -89,11 +109,21 @@ A → B → C → A
 ```
 **Expected:** 400 — cannot depend on itself
 
-### Zero duration
+### Minimum duration
 
 | Task | duration | Expected |
 |------|----------|----------|
-| Milestone | 0 | startDay=endDay |
+| Any task | 0 | 400 — Duration must be at least 1 day |
+| Any task | 1 | ✅ Accepted |
+
+### Status workflow
+
+| Scenario | Expected |
+|----------|----------|
+| Mark task In Progress when dep is Pending | 400 — error with dep name |
+| Mark task Completed when dep is In Progress | 400 — error with dep name |
+| Revert dep to Pending when child is In Progress | 400 — error with child name |
+| Mark task In Progress when all deps Completed | ✅ 200 success |
 
 ### Duplicate dependencies
 

@@ -38,11 +38,11 @@
 |-------|------|-------------|
 | `_id` | ObjectId | Primary key |
 | `name` | String | Task name (required, max 200) |
-| `duration` | Number | Days (≥ 0) |
+| `duration` | Number | Days (≥ 1, minimum enforced) |
 | `dependencies` | ObjectId[] | Predecessor task IDs |
 | `status` | Enum | Pending, In Progress, Completed |
-| `startDay` | Number | Computed schedule start |
-| `endDay` | Number | Computed schedule end |
+| `startDay` | Number | Computed schedule start (0-indexed internally) |
+| `endDay` | Number | Computed schedule end (0-indexed internally) |
 | `isCritical` | Boolean | On critical path |
 | `createdAt` / `updatedAt` | Date | Timestamps |
 
@@ -70,6 +70,13 @@ Controllers are thin: call service, return `{ success, message?, data }` with ap
 - `recalculateAndSave()`: loads all tasks, runs engine, `bulkWrite` updates
 - `getTasks()`: returns filtered `tasks`, unfiltered `allTasks`, and `meta` (project-wide stats)
 - `getScheduleMeta()`: computes `projectEnd` / `criticalPath` from all tasks (filter-independent)
+
+**Status workflow enforcement in `updateTask()`:**
+
+| Check | Condition | Error |
+|-------|-----------|-------|
+| Forward block | New status is `In Progress`/`Completed` but any dependency is not `Completed` | 400 with blocker names |
+| Backward block | New status is `Pending` but a dependent task is already `In Progress`/`Completed` | 400 with affected names |
 
 ### Middleware (`requireDb.js`)
 
@@ -149,10 +156,10 @@ No Redux — React `useState` + `useCallback` keeps the demo simple and explaina
 
 | Layer | Examples |
 |-------|----------|
-| Frontend | Empty name, negative duration, confirm delete |
+| Frontend | Empty name, duration < 1, locked status dropdown |
 | Backend route | `requireBody(['name', 'duration'])` |
-| Backend service | Invalid IDs, self-dep, duplicate name |
-| Mongoose | Schema min/enum constraints |
+| Backend service | Invalid IDs, self-dep, duplicate name, workflow enforcement |
+| Mongoose | Schema min (1 day) / enum constraints |
 
 ## 8. Error Handling Strategy
 
@@ -177,7 +184,11 @@ Frontend: Axios interceptor unwraps `response.data.message`. `ErrorBoundary` cat
 | `topologicalSort()` | schedulingEngine | Ordering + cycle detection |
 | `recalculateAndSave()` | taskService | Persist schedule to DB |
 | `validateDependencies()` | taskValidation | Dep ID validation |
+| `validateDuration()` | taskValidation | Enforce ≥ 1 day |
+| `updateTask()` | taskService | Status workflow enforcement |
 | `useTasks()` | hooks | Frontend data layer |
+| `isStatusLocked()` | TaskList | Frontend dep-status lock check |
+| `formatDayRange()` | formatters | 1-indexed display (Day 1–3) |
 | `GanttChart` | components | Google Charts Timeline rendering |
 
 ## 10. Gantt Integration
@@ -185,8 +196,13 @@ Frontend: Axios interceptor unwraps `response.data.message`. `ErrorBoundary` cat
 Tasks mapped to Google Charts Timeline rows:
 
 - `start` = anchorDate + startDay
-- `end` = anchorDate + endDay (minimum 1-day bar for visibility when duration &gt; 0)
-- `style` column colors critical tasks red (`#ef4444`)
+- `end` = anchorDate + endDay (minimum 1-day bar for visibility)
+- Fill color encodes both critical path AND status:
+  - Normal+Pending: `#6366f1`, Normal+InProgress: `#6366f2`, Normal+Completed: `#6366f3`
+  - Critical+Pending: `#ef4444`, Critical+InProgress: `#ef4445`, Critical+Completed: `#ef4446`
+- CSS `[fill=...]` attribute selectors inject dashed amber (`#f59e0b`) borders for In Progress and solid green (`#10b981`) for Completed
+- This technique is immune to Google Charts' hover redraws, which reset manually-injected DOM attributes
+- Day display uses 1-indexed labels (`Day 1–3`) via `formatDayRange()` in `formatters.js`
 
 ## 11. Auto Schedule Recalculation
 
