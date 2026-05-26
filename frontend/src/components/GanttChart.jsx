@@ -6,15 +6,16 @@ const COLUMNS = [
   { type: 'string', id: 'Row' },
   { type: 'string', id: 'Bar' },
   { type: 'string', role: 'tooltip', p: { html: true } },
+  { type: 'string', role: 'style' },
   { type: 'date', id: 'Start' },
   { type: 'date', id: 'End' },
 ];
 
 const CRITICAL_COLOR = '#ef4444';
-const NORMAL_COLOR  = '#6366f1';
+const NORMAL_COLOR = '#6366f1';
 
-const ROW_H = 41;
-const CHART_PAD = 30;
+const ROW_H = 44;
+const CHART_PAD = 50;
 const MAX_VISIBLE_ROWS = 4;
 
 function ganttHeight(n) { return n * ROW_H + CHART_PAD; }
@@ -56,15 +57,15 @@ export default function GanttChart({ tasks, projectEnd, allTasks, theme }) {
   }
 
   /* ── Tooltip helpers ── */
-  const ttBg     = isDark ? '#18181b' : '#fff';
+  const ttBg = isDark ? '#18181b' : '#fff';
   const ttBorder = isDark ? '#27272a' : '#e2e8f0';
-  const ttTitle  = isDark ? '#f4f4f5' : '#0f172a';
-  const ttSub    = isDark ? '#a1a1aa' : '#64748b';
+  const ttTitle = isDark ? '#f4f4f5' : '#0f172a';
+  const ttSub = isDark ? '#a1a1aa' : '#64748b';
 
   /* ── Build rows ── */
   const rows = scheduled.map((t) => {
     const start = addDaysToAnchor(anchor, t.startDay);
-    const end   = addDaysToAnchor(anchor, Math.max(t.endDay, t.startDay + 1));
+    const end = addDaysToAnchor(anchor, Math.max(t.endDay, t.startDay + 1));
 
     const fmt = (d) => d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
     const crit = t.isCritical
@@ -77,34 +78,21 @@ export default function GanttChart({ tasks, projectEnd, allTasks, theme }) {
         <div style="color:${ttSub};font-size:12px;margin-bottom:2px;">📅 ${fmt(start)} – ${fmt(end)}</div>
         <div style="color:${ttSub};font-size:12px;">⏱ ${t.duration} day${t.duration !== 1 ? 's' : ''} &nbsp;|&nbsp; Day ${t.startDay} → ${t.endDay}</div>
       </div>`;
-
-    return [t.name, t.name, tooltip, start, end];
+    const color = t.isCritical ? CRITICAL_COLOR : NORMAL_COLOR;
+    return [t.name, t.name, tooltip, color, start, end];
   });
-
-  /* ── Force 7-day span for short timelines ── */
-  const maxEnd = Math.max(...scheduled.map((t) => t.endDay ?? 0));
-  const barColors = scheduled.map((t) => (t.isCritical ? CRITICAL_COLOR : NORMAL_COLOR));
-  
-  if (maxEnd < 7 && scheduled.length > 0) {
-    // Add a tiny, invisible 1-second bar to the first existing row at Day 7.
-    // Colored the same as the background to perfectly hide it.
-    const padStart = addDaysToAnchor(anchor, 7);
-    const padEnd = new Date(padStart.getTime() + 1000);
-    rows.push([scheduled[0].name, '', '', padStart, padEnd]);
-    barColors.push(isDark ? '#09090b' : '#f8f9fc');
-  }
 
   /* ── Dimensions ── */
   const visibleRows = scheduled.length;
-  const chartH      = ganttHeight(visibleRows);
+  const chartH = ganttHeight(visibleRows);
   const timelineEnd = Math.max(projectEnd ?? 0, 7);
-  const minChartW   = Math.max(800, timelineEnd * 60 + 200);
+  const minChartW = Math.max(100, timelineEnd * 40 + 150);
 
-  const shouldScroll = visibleRows > MAX_VISIBLE_ROWS;
-  const containerH   = shouldScroll ? ganttHeight(MAX_VISIBLE_ROWS) : chartH;
+  // Viewport max-height is exactly 4 tasks + a 10px buffer to prevent scrollbars from clipping text
+  const maxWrapperH = ganttHeight(MAX_VISIBLE_ROWS) + 15;
 
   const criticalCount = scheduled.filter((t) => t.isCritical).length;
-  const labelColor    = isDark ? '#e4e4e7' : '#475569';
+  const labelColor = isDark ? '#e4e4e7' : '#475569';
 
   /* ── Error state ── */
   if (chartError) {
@@ -145,20 +133,31 @@ export default function GanttChart({ tasks, projectEnd, allTasks, theme }) {
         </div>
       </div>
 
+      <style>{`
+        /* Force Google Charts to never render its own internal vertical scrollbar */
+        .gantt-container > div > div {
+          overflow-y: hidden !important;
+        }
+      `}</style>
+
       {/* Chart body */}
-      <div className="p-4 sm:p-5">
+      <div className="p-4 sm:px-5 sm:pt-5 sm:pb-3">
         <div
-          className="overflow-x-auto border border-slate-100/60 dark:border-zinc-800/40 custom-scrollbar"
-          style={{ 
-            height: shouldScroll ? containerH : chartH,
-            overflowY: shouldScroll ? 'auto' : 'hidden' 
-          }}
+          className="overflow-x-auto overflow-y-auto border border-slate-100/60 dark:border-zinc-800/40 custom-scrollbar"
+          style={{ maxHeight: `${maxWrapperH}px` }}
         >
-          <div className="gantt-container" style={{ minWidth: minChartW }}>
+          <div 
+            className="gantt-container" 
+            style={{ 
+              minWidth: minChartW, 
+              height: `${chartH}px`, 
+              overflowY: 'hidden' 
+            }}
+          >
             <Chart
               chartType="Timeline"
               width="100%"
-              height={chartH}
+              height={`${chartH}px`}
               data={[COLUMNS, ...rows]}
               options={{
                 timeline: {
@@ -176,7 +175,6 @@ export default function GanttChart({ tasks, projectEnd, allTasks, theme }) {
                     color: '#ffffff',
                   },
                 },
-                colors: barColors,
                 tooltip: { isHtml: true },
                 backgroundColor: 'transparent',
                 hAxis: {
@@ -196,16 +194,17 @@ export default function GanttChart({ tasks, projectEnd, allTasks, theme }) {
                   callback: () => {
                     const container = document.querySelector('.gantt-container');
                     if (!container) return;
-                    
+
                     const taskNames = scheduled.map(t => t.name);
                     const labels = container.querySelectorAll('svg text[text-anchor="end"]');
-                    
+
                     labels.forEach((label) => {
                       if (taskNames.includes(label.textContent)) {
                         const originalX = parseFloat(label.getAttribute('x'));
                         if (originalX && !label.dataset.centered) {
-                          label.setAttribute('x', (originalX / 2).toString());
-                          label.setAttribute('text-anchor', 'middle');
+                          // Left-align with 15px padding to prevent long names from clipping
+                          label.setAttribute('x', '15');
+                          label.setAttribute('text-anchor', 'start');
                           label.dataset.centered = 'true';
                         }
                       }
@@ -225,7 +224,7 @@ export default function GanttChart({ tasks, projectEnd, allTasks, theme }) {
         </div>
 
         {/* Legend */}
-        <div className="mt-4 flex flex-wrap items-center gap-5 border-t border-slate-100/60 pt-4 dark:border-zinc-800/40">
+        <div className="mt-3 flex flex-wrap items-center gap-5 border-t border-slate-100/60 pt-4 dark:border-zinc-800/40">
           <span className="flex items-center gap-2 text-xs font-medium text-slate-500 dark:text-zinc-400">
             <span className="inline-block h-3 w-6 rounded-sm" style={{ background: NORMAL_COLOR }} />
             Normal Task
