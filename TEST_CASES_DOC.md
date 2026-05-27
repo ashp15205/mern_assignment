@@ -165,16 +165,7 @@ curl http://localhost:5000/tasks
 
 **Expected B:** `startDay: 2, endDay: 5`
 
-## 7. Screenshot Placeholders
-
-| Screenshot | Path | Status |
-|------------|------|--------|
-| Task list | `docs/screenshots/task-list.png` | Pending |
-| Gantt chart | `docs/screenshots/gantt.png` | Pending |
-| Circular error | `docs/screenshots/cycle-error.png` | Pending |
-| Dark mode | `docs/screenshots/dark-mode.png` | Pending |
-
-## 8. Reliability & Enhancement Tests
+## 7. Reliability & Enhancement Tests
 
 | ID | Test | Expected |
 |----|------|----------|
@@ -186,7 +177,7 @@ curl http://localhost:5000/tasks
 | R6 | Google Charts CDN blocked | Gantt shows fallback message; table still works |
 | R7 | Rename task to duplicate name | PATCH → 409 |
 
-## 9. Final Results Summary
+## 8. Final Results Summary
 
 | Category | Total | Pass criteria |
 |----------|-------|---------------|
@@ -198,7 +189,7 @@ curl http://localhost:5000/tasks
 
 **Stability goal:** Application must not crash during live demo; all failures return user-readable messages.
 
-## 10. Quick API Test Script
+## 9. Quick API Test Script
 
 ```bash
 # Health (503 if MongoDB down)
