@@ -102,7 +102,7 @@ endDay   = startDay + duration
 
 ### Step 3: Critical path
 
-Dynamic programming on topo order: longest path length to each node. Backtrack from max endpoint to mark `isCritical`.
+Dynamic programming on topological order: longest path length to each node. Backtrack from max endpoint to mark `isCritical`.
 
 ### Pseudocode
 
