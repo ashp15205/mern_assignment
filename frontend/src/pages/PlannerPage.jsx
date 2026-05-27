@@ -71,12 +71,7 @@ export default function PlannerPage({ theme, onToggleTheme }) {
             }} 
             loading={actionLoading} 
           />
-          <SidebarToolbar
-            onRecalculate={() => regenerateSchedule()}
-            onRefresh={() => fetchTasks()}
-            recalcDisabled={actionLoading || !totalTasks}
-            refreshDisabled={loading}
-          />
+          <SidebarToolbar />
         </div>
 
         {/* ── Main content ── */}
