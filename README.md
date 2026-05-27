@@ -437,7 +437,7 @@ The frontend features a premium, modern design inspired by Apple's design langua
 
 ## Design Decisions
 
-1. **Earliest-start scheduling** — industry-standard CPM-style forward pass; easy to explain in interviews.
+1. **Earliest-start scheduling** — industry-standard CPM-style forward pass.
 2. **Server-side scheduling** — single source of truth; frontend only displays results.
 3. **Topological sort for cycles** — Kahn's algorithm detects cycles before scheduling.
 4. **react-google-charts** — reliable React Timeline chart; avoids custom chart code.
